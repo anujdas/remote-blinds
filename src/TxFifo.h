@@ -8,9 +8,9 @@
  * wakeup: 2 vals (preamble)
  * first: (4 * 2) (hw sync) + 2 (sw sync) + (2 * 56) (data) + 1 (gap) = 123 vals
  * repeat: (4 * 7) (hw sync) + 2 (sw sync) + (2 * 56) (data) + 1 (gap) = 143 vals
- * total: 2 + 123 + 143 = 268 vals, use 280 for margin
+ * total: 2 + 123 + 3 * 143 = 554 vals, use 578 for margin
  */
-#define MAX_STREAM_LENGTH 280
+#define MAX_STREAM_LENGTH 578
 
 /* Pack val and length together on one byte: high bit is val */
 #define LENGTH_MASK 0b01111111
@@ -21,7 +21,7 @@ class TxFifo {
 
     void setBitDuration(uint16_t bit_duration);
     void clear();
-    bool push(bool val, uint16_t length);
+    bool shift(bool val, uint16_t length);
     void transmit();
 
   private:
@@ -29,6 +29,7 @@ class TxFifo {
     uint16_t stream_length;
     uint16_t bit_duration;
     RFM69OOK* radio;
+    unsigned long initialMicros;
 
     void delayUs(uint16_t us);
 };

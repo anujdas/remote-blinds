@@ -60,31 +60,32 @@ void Somfy::constructBitstream(TxFifo* fifo) {
   fifo->setBitDuration(BIT_DURATION);
 
   // Wake-up pulse & silence (preamble)
-  fifo->push(HIGH, WAKEUP_WIDTH);
-  fifo->push(LOW, SILENCE_WIDTH);
+  fifo->shift(HIGH, WAKEUP_WIDTH);
+  fifo->shift(LOW, SILENCE_WIDTH);
 
+  // Repeat frame couple times to be sure
   for (byte frame_num = 0; frame_num <= COMMAND_REPEAT; frame_num++) {
     // Hardware sync: two sync for the first frame, seven for the following ones.
     byte sync_repeat = frame_num == 0 ? 2 : 7;
     for (byte i = 0; i < sync_repeat; i++) {
-      fifo->push(HIGH, HW_SYNC_WIDTH);
-      fifo->push(LOW, HW_SYNC_WIDTH);
+      fifo->shift(HIGH, HW_SYNC_WIDTH);
+      fifo->shift(LOW, HW_SYNC_WIDTH);
     }
 
     // Software sync
-    fifo->push(HIGH, SW_SYNC_WIDTH);
-    fifo->push(LOW, SYM_WIDTH);
+    fifo->shift(HIGH, SW_SYNC_WIDTH);
+    fifo->shift(LOW, SYM_WIDTH);
 
     // Data: bits are sent Manchester-encoded starting with the MSB.
     bool bit;
     for (byte i = 0; i < 56; i++) {
       bit = bitRead(frame[i / 8], 7 - (i % 8));
-      fifo->push(!bit, SYM_WIDTH);
-      fifo->push(bit, SYM_WIDTH);
+      fifo->shift(!bit, SYM_WIDTH);
+      fifo->shift(bit, SYM_WIDTH);
     }
 
     // Inter-frame silence
-    fifo->push(LOW, FRAME_GAP_WIDTH);
+    fifo->shift(LOW, FRAME_GAP_WIDTH);
   }
 }
 
