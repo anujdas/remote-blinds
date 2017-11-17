@@ -4,6 +4,7 @@
 
 #include "config.h"
 #include "Somfy.h"
+#include "TxFifo.h"
 
 #define TX_PIN D0
 
@@ -11,8 +12,9 @@ const PROGMEM char ssid[] = "";
 const PROGMEM char pass[] = "";
 
 BlindsConfig blinds_config;
-Somfy somfy(TX_PIN, &blinds_config);
+Somfy somfy(&blinds_config);
 RFM69OOK radio(SS, TX_PIN, true);
+TxFifo fifo(&radio);
 
 void connectWifi() {
   Serial.print("Connecting to ");
@@ -49,23 +51,24 @@ void loop() {
   if (Serial.available() > 0) {
     char input = (char) Serial.read();
     Serial.println("");
+
     if (input == 'u') {
       Serial.println("Up");
-      somfy.buildFrame(BTN_UP, 1);
+      somfy.buildFrame(BTN_UP, 1, &fifo);
     } else if (input == 'd') {
       Serial.println("Down");
-      somfy.buildFrame(BTN_DOWN, 1);
+      somfy.buildFrame(BTN_DOWN, 1, &fifo);
     } else if (input == 's') {
       Serial.println("Stop");
-      somfy.buildFrame(BTN_STOP, 1);
+      somfy.buildFrame(BTN_STOP, 1, &fifo);
     } else if (input == 'p') {
       Serial.println("Program");
-      somfy.buildFrame(BTN_PROG, 1);
+      somfy.buildFrame(BTN_PROG, 1, &fifo);
     } else {
       return;
     }
 
-    somfy.broadcast(3);
+    fifo.transmit();
     Serial.println("Sent!");
   }
 }

@@ -1,7 +1,6 @@
 #include "Somfy.h"
 
-Somfy::Somfy(byte tx_pin, BlindsConfig* config) {
-  this->tx_pin = tx_pin;
+Somfy::Somfy(BlindsConfig* config) {
   this->config = config;
 }
 
@@ -13,7 +12,7 @@ Somfy::Somfy(byte tx_pin, BlindsConfig* config) {
  * |  key  |ctrl|cks|  Rolling Code |   Address(A0|A1|A3)   |
  * |-------|--------|-------|-------|-------|-------|-------|
  */
-byte* Somfy::buildFrame(byte button, uint8_t remote_num) {
+void Somfy::buildFrame(byte button, uint8_t remote_num, TxFifo* fifo) {
   uint32_t remote_addr = config->getRemoteAddr(remote_num);
   uint16_t rolling_code = config->incrementRollingCode(remote_num);
 
@@ -39,20 +38,7 @@ byte* Somfy::buildFrame(byte button, uint8_t remote_num) {
     frame[i] ^= frame[i-1];
   }
 
-  return frame;
-}
-
-void Somfy::broadcast(byte repeat) {
-  //Wake-up pulse & Silence
-  digitalWrite(tx_pin, HIGH);
-  delayMicroseconds(WAKEUP_WIDTH * BIT_DURATION);
-  digitalWrite(tx_pin, LOW);
-  delayMicroseconds(SILENCE_WIDTH * BIT_DURATION);
-
-  sendCommand(true);
-  for (byte i = 0; i < repeat; i++) {
-    sendCommand(false);
-  }
+  constructBitstream(fifo);
 }
 
 /* Based on https://pushstack.wordpress.com/somfy-rts-protocol/
@@ -63,41 +49,43 @@ void Somfy::broadcast(byte repeat) {
  * | 2416us | 2416us | 2416us | 2416us | 4550 us |  | 67648 us |  30415 us  |
  *
  * +--------+        +--------+        +---...---+
- * +        +--------+        +--------+         +--+XXXX...XXX+-----...-----
+ * +        +--------+        +--------+         +--+XXXX..XXXX+-----...-----
  *
  * |              hw. sync.            |   soft.    |          | Inter-frame
  * |                                   |   sync.    |   data   |     gap
  *
  */
-void Somfy::sendCommand(bool first_frame) {
-  // Hardware sync: two sync for the first frame, seven for the following ones.
-  byte sync_repeat = first_frame ? 2 : 7;
-  for (byte i = 0; i < sync_repeat; i++) {
-    digitalWrite(tx_pin, HIGH);
-    delayMicroseconds(HW_SYNC_WIDTH * BIT_DURATION);
-    digitalWrite(tx_pin, LOW);
-    delayMicroseconds(HW_SYNC_WIDTH * BIT_DURATION);
+void Somfy::constructBitstream(TxFifo* fifo) {
+  // Set the unit time multiplier on the FIFO bits
+  fifo->setBitDuration(BIT_DURATION);
+
+  // Wake-up pulse & silence (preamble)
+  fifo->push(HIGH, WAKEUP_WIDTH);
+  fifo->push(LOW, SILENCE_WIDTH);
+
+  for (byte frame_num = 0; frame_num <= COMMAND_REPEAT; frame_num++) {
+    // Hardware sync: two sync for the first frame, seven for the following ones.
+    byte sync_repeat = frame_num == 0 ? 2 : 7;
+    for (byte i = 0; i < sync_repeat; i++) {
+      fifo->push(HIGH, HW_SYNC_WIDTH);
+      fifo->push(LOW, HW_SYNC_WIDTH);
+    }
+
+    // Software sync
+    fifo->push(HIGH, SW_SYNC_WIDTH);
+    fifo->push(LOW, SYM_WIDTH);
+
+    // Data: bits are sent Manchester-encoded starting with the MSB.
+    bool bit;
+    for (byte i = 0; i < 56; i++) {
+      bit = bitRead(frame[i / 8], 7 - (i % 8));
+      fifo->push(!bit, SYM_WIDTH);
+      fifo->push(bit, SYM_WIDTH);
+    }
+
+    // Inter-frame silence
+    fifo->push(LOW, FRAME_GAP_WIDTH);
   }
-
-  // Software sync
-  digitalWrite(tx_pin, HIGH);
-  delayMicroseconds(SW_SYNC_WIDTH * BIT_DURATION);
-  digitalWrite(tx_pin, LOW);
-  delayMicroseconds(SYM_WIDTH * BIT_DURATION);
-
-  // Data: bits are sent one by one, starting with the MSB.
-  bool bit;
-  for (byte i = 0; i < 56; i++) {
-    bit = ((frame[i/8] >> (7 - (i % 8))) & 1) == 1;
-    digitalWrite(tx_pin, !bit); // use Manchester encoding (edges not values)
-    delayMicroseconds(SYM_WIDTH * BIT_DURATION);
-    digitalWrite(tx_pin, bit);
-    delayMicroseconds(SYM_WIDTH * BIT_DURATION);
-  }
-
-  // Inter-frame silence
-  digitalWrite(tx_pin, LOW);
-  delayMicroseconds(FRAME_GAP_WDTH * BIT_DURATION);
 }
 
 void Somfy::printFrame() {
