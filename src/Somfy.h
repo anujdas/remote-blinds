@@ -4,12 +4,7 @@
 #include <Arduino.h>
 #include <EEPROM.h>
 
-/* EEPROM base address and offsets for saved values */
-#define EEPROM_BASE 0
-#define ROLLING_CODE_OFFSET 0
-
-/* Default values, if not set in EEPROM */
-#define NEW_ROLLING_CODE 123
+#include "config.h"
 
 /* Button codes */
 #define BTN_STOP 0x1
@@ -32,26 +27,21 @@
  * repeat: 7 * (2 * 8) + 15 + 2 + 56 * (2 * 2) + 101 = 454 bits = ~57 bytes
  * With three repeats, that's 41 + 47 + 3 * 57 = 259 bytes; 384 seems safe
  */
-#define BUFFER_BYTES 384
 #define COMMAND_REPEAT 3 // initial + 3 = total 4 attempts per command
 
 class Somfy {
   public:
-    Somfy(uint32_t remote_id, byte tx_pin);
-    uint16_t getRollingCode();
-    byte* buildFrame(byte button);
-    byte* getBitstream();
+    Somfy(byte tx_pin, BlindsConfig* config);
+    byte* buildFrame(byte button, uint8_t remote_num);
     void broadcast(byte repeat);
+
   private:
-    uint32_t remote_id;
     byte tx_pin;
-    uint16_t rolling_code;
+    BlindsConfig* config;
+
     byte frame[7];
     byte cksum;
-    byte bitstream[BUFFER_BYTES];
 
-    uint16_t readRollingCode();
-    void writeRollingCode();
     void sendCommand(bool first_frame);
     void printFrame();
 };

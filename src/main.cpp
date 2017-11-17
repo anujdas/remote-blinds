@@ -1,16 +1,18 @@
 #include <ESP8266WiFi.h>
 #include <SPI.h>
 #include <RFM69OOK.h>
-#include <Somfy.h>
 
-#define REMOTE_ID 0x102030
+#include "config.h"
+#include "Somfy.h"
+
 #define TX_PIN D0
 
 char ssid[] = "";  //  your network SSID (name)
 char pass[] = "";  // your network password
 
+BlindsConfig blinds_config;
+Somfy somfy(TX_PIN, &blinds_config);
 RFM69OOK radio(SS, TX_PIN, true);
-Somfy somfy(REMOTE_ID, TX_PIN);
 
 void connectWifi() {
   Serial.print("Connecting to ");
@@ -38,6 +40,7 @@ void setupRadio() {
 
 void setup() {
   Serial.begin(115200);
+  blinds_config.loadConfig();
   setupRadio();
   /* connectWifi(); */
 }
@@ -58,17 +61,17 @@ void loop() {
     char input = (char) Serial.read();
     Serial.println("");
     if (input == 'u') {
-      Serial.println("Up"); // Somfy is a French company, after all.
-      somfy.buildFrame(BTN_UP);
-    } else if (input == 's') {
-      Serial.println("Stop");
-      somfy.buildFrame(BTN_STOP);
+      Serial.println("Up");
+      somfy.buildFrame(BTN_UP, 1);
     } else if (input == 'd') {
       Serial.println("Down");
-      somfy.buildFrame(BTN_DOWN);
+      somfy.buildFrame(BTN_DOWN, 1);
+    } else if (input == 's') {
+      Serial.println("Stop");
+      somfy.buildFrame(BTN_STOP, 1);
     } else if (input == 'p') {
       Serial.println("Program");
-      somfy.buildFrame(BTN_PROG);
+      somfy.buildFrame(BTN_PROG, 1);
     } else {
       return;
     }

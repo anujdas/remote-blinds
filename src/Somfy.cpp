@@ -1,18 +1,8 @@
 #include "Somfy.h"
 
-Somfy::Somfy(uint32_t remote_id, byte tx_pin) {
+Somfy::Somfy(byte tx_pin, BlindsConfig* config) {
   this->tx_pin = tx_pin;
-  this->remote_id = remote_id;
-
-  readRollingCode();
-  if (rolling_code < NEW_ROLLING_CODE) {
-    rolling_code = NEW_ROLLING_CODE;
-    writeRollingCode();
-  }
-}
-
-uint16_t Somfy::getRollingCode() {
-  return rolling_code;
+  this->config = config;
 }
 
 /* Based on https://pushstack.wordpress.com/somfy-rts-protocol/
@@ -23,14 +13,17 @@ uint16_t Somfy::getRollingCode() {
  * |  key  |ctrl|cks|  Rolling Code |   Address(A0|A1|A3)   |
  * |-------|--------|-------|-------|-------|-------|-------|
  */
-byte* Somfy::buildFrame(byte button) {
+byte* Somfy::buildFrame(byte button, uint8_t remote_num) {
+  uint32_t remote_addr = config->getRemoteAddr(remote_num);
+  uint16_t rolling_code = config->incrementRollingCode(remote_num);
+
   frame[0] = 0xA0;              // "Encryption" key, only high nibble (0xA) matters... wtf
   frame[1] = button << 4;       // Button code in high nibble; low nibble will be checksum
   frame[2] = rolling_code >> 8; // Rolling code (big endian)
   frame[3] = rolling_code;      // Rolling code
-  frame[4] = remote_id >> 16;   // Remote address (technically little endian, but doesn't matter)
-  frame[5] = remote_id >> 8;    // Remote address
-  frame[6] = remote_id;         // Remote address
+  frame[4] = remote_addr >> 16; // Remote address (technically little endian, but doesn't matter)
+  frame[5] = remote_addr >> 8;  // Remote address
+  frame[6] = remote_addr;       // Remote address
 
   // Calculate 4-bit checksum (cks) as XOR of all nibbles w/ cks = 0
   cksum = frame[1] & 0x0F; // aka, 0
@@ -39,21 +32,14 @@ byte* Somfy::buildFrame(byte button) {
   }
   frame[1] |= cksum & 0x0F; // mask low nibble and set on ctrl|cks byte
 
+  printFrame(); // print post-checksum, pre-obfuscation
+
   // Obfuscate: XOR between each byte and the previous obfuscated one
   for (byte i = 1; i < 7; i++) {
     frame[i] ^= frame[i-1];
   }
 
-  printFrame();
-
-  rolling_code += 1;  // increment rolling code
-  writeRollingCode(); // save new rolling code
-
   return frame;
-}
-
-byte* Somfy::getBitstream() {
-  return bitstream; // TODO
 }
 
 void Somfy::broadcast(byte repeat) {
@@ -67,18 +53,6 @@ void Somfy::broadcast(byte repeat) {
   for (byte i = 0; i < repeat; i++) {
     sendCommand(false);
   }
-}
-
-uint16_t Somfy::readRollingCode() {
-  EEPROM.begin(8);
-  EEPROM.get(EEPROM_BASE + ROLLING_CODE_OFFSET, rolling_code);
-  EEPROM.end();
-}
-
-void Somfy::writeRollingCode() {
-  EEPROM.begin(8);
-  EEPROM.put(EEPROM_BASE + ROLLING_CODE_OFFSET, rolling_code);
-  EEPROM.end();
 }
 
 /* Based on https://pushstack.wordpress.com/somfy-rts-protocol/
@@ -127,8 +101,6 @@ void Somfy::sendCommand(bool first_frame) {
 }
 
 void Somfy::printFrame() {
-  Serial.print("Rolling code: ");
-  Serial.println(rolling_code);
   Serial.print("Frame: ");
   for (byte i = 0; i < 7; i++) {
     // Display leading zero when high nibble is 0
