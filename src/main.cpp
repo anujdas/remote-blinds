@@ -1,12 +1,16 @@
 #include <ESP8266WiFi.h>
+#include <SPI.h>
+#include <RFM69OOK.h>
 #include <Somfy.h>
 
 #define REMOTE_ID 0x102030
+#define TX_PIN D0
 
 char ssid[] = "";  //  your network SSID (name)
-char pass[] = "";       // your network password
+char pass[] = "";  // your network password
 
-Somfy somfy(REMOTE_ID);
+RFM69OOK radio(SS, TX_PIN, true);
+Somfy somfy(REMOTE_ID, TX_PIN);
 
 void connectWifi() {
   Serial.print("Connecting to ");
@@ -23,27 +27,53 @@ void connectWifi() {
   Serial.println("WiFi connected");
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
-};
+}
+
+void setupRadio() {
+  pinMode(TX_PIN, OUTPUT);
+  radio.initialize();
+  radio.transmitBegin();
+  radio.setFrequencyMHz(433.42);
+}
 
 void setup() {
   Serial.begin(115200);
-
-  connectWifi();
+  setupRadio();
+  /* connectWifi(); */
 }
 
 void printFrame(byte* frame) {
-  Serial.print("Frame         : ");
+  Serial.print("Frame: ");
   for (byte i = 0; i < 7; i++) {
-    if (frame[i] >> 4 == 0) { // Displays leading zero in case the most significant
-      Serial.print("0");      // nibble is a 0.
-    }
-    Serial.print(frame[i], HEX); Serial.print(" ");
+    // Display leading zero when high nibble is 0
+    if (frame[i] >> 4 == 0) Serial.print("0");
+    Serial.print(frame[i], HEX);
+    Serial.print(" ");
   }
+  Serial.println("");
 }
 
 void loop() {
-  somfy.printRollingCode();
-  printFrame(somfy.buildFrame(BTN_STOP));
+  if (Serial.available() > 0) {
+    char input = (char) Serial.read();
+    Serial.println("");
+    if (input == 'u') {
+      Serial.println("Up"); // Somfy is a French company, after all.
+      somfy.buildFrame(BTN_UP);
+    } else if (input == 's') {
+      Serial.println("Stop");
+      somfy.buildFrame(BTN_STOP);
+    } else if (input == 'd') {
+      Serial.println("Down");
+      somfy.buildFrame(BTN_DOWN);
+    } else if (input == 'p') {
+      Serial.println("Program");
+      somfy.buildFrame(BTN_PROG);
+    } else {
+      return;
+    }
 
-  delay(1000);
+    somfy.broadcast(3);
+    Serial.println("Sent!");
+  }
 }
