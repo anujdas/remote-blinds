@@ -45,17 +45,6 @@ void setup() {
   /* connectWifi(); */
 }
 
-void printFrame(byte* frame) {
-  Serial.print("Frame: ");
-  for (byte i = 0; i < 7; i++) {
-    // Display leading zero when high nibble is 0
-    if (frame[i] >> 4 == 0) Serial.print("0");
-    Serial.print(frame[i], HEX);
-    Serial.print(" ");
-  }
-  Serial.println("");
-}
-
 void loop() {
   if (Serial.available() > 0) {
     char input = (char) Serial.read();
