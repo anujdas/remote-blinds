@@ -7,8 +7,8 @@
 
 #define TX_PIN D0
 
-char ssid[] = "";  //  your network SSID (name)
-char pass[] = "";  // your network password
+const PROGMEM char ssid[] = "";
+const PROGMEM char pass[] = "";
 
 BlindsConfig blinds_config;
 Somfy somfy(TX_PIN, &blinds_config);
