@@ -17,50 +17,58 @@ Somfy somfy(&blinds_config);
 RFM69OOK radio(SS, TX_PIN, true);
 TxFifo fifo(&radio);
 
-void connectWifi() {
-  WiFiManager wifiManager;
-  wifiManager.autoConnect();
-  Serial.println("WiFi connected");
-  Serial.println("IP address: ");
-  Serial.println(WiFi.localIP());
-}
-
-void setupRadio() {
-  pinMode(TX_PIN, OUTPUT);
-  radio.initialize();
-  radio.transmitBegin();
-  radio.setFrequencyMHz(433.42);
-}
+uint8_t current_blind = 0;
 
 void setup() {
   Serial.begin(115200);
+
+  // Fetch remote settings from EEPROM
   blinds_config.loadConfig();
-  setupRadio();
-  connectWifi();
+
+  // Connect to WiFi, with config portal if necessary
+  WiFiManager wifiManager;
+  wifiManager.autoConnect();
+
+  // Set up 433MHz radio
+  radio.initialize();
+  radio.transmitBegin();
+  radio.setFrequencyMHz(433.42);
+
+  Serial.println(F("Ready!"));
 }
 
 void loop() {
   if (Serial.available() > 0) {
     char input = (char) Serial.read();
-    Serial.println("");
 
-    if (input == 'u') {
-      Serial.println("Up");
-      somfy.buildFrame(BTN_UP, 1, &fifo);
+    if (input == '0') {
+      current_blind = 0;
+      Serial.println(F("Current blind: 0"));
+    } else if (input == '1') {
+      current_blind = 1;
+      Serial.println(F("Current blind: 1"));
+    } else if (input == '2') {
+      current_blind = 2;
+      Serial.println(F("Current blind: 2"));
+    } else if (input == 'u') {
+      somfy.buildFrame(BTN_UP, current_blind, &fifo);
+      fifo.transmit();
+      Serial.println(F("Transmitted: up"));
     } else if (input == 'd') {
-      Serial.println("Down");
-      somfy.buildFrame(BTN_DOWN, 1, &fifo);
+      somfy.buildFrame(BTN_DOWN, current_blind, &fifo);
+      fifo.transmit();
+      Serial.println(F("Transmitted: down"));
     } else if (input == 's') {
-      Serial.println("Stop");
-      somfy.buildFrame(BTN_STOP, 1, &fifo);
+      somfy.buildFrame(BTN_STOP, current_blind, &fifo);
+      fifo.transmit();
+      Serial.println(F("Transmitted: stop"));
     } else if (input == 'p') {
-      Serial.println("Program");
-      somfy.buildFrame(BTN_PROG, 1, &fifo);
+      somfy.buildFrame(BTN_PROG, current_blind, &fifo);
+      fifo.transmit();
+      Serial.println(F("Transmitted: program"));
     } else {
+      Serial.println(F("Help: <0-2> to select blind, <u/d/s> to control, <p> to program"));
       return;
     }
-
-    fifo.transmit();
-    Serial.println("Sent!");
   }
 }
