@@ -1,6 +1,8 @@
 #include <ESP8266WiFi.h>
 #include <SPI.h>
 #include <RFM69OOK.h>
+#include <Wire.h>
+#include <SSD1306.h>
 
 #include <DNSServer.h>
 #include <ESP8266WebServer.h>
@@ -9,6 +11,11 @@
 #include "config.h"
 #include "Somfy.h"
 #include "TxFifo.h"
+#include "Ui.h"
+
+#define I2C_ADDRESS 0x3C
+#define SDA D2
+#define SCL D1
 
 #define TX_PIN D0
 
@@ -17,10 +24,16 @@ Somfy somfy(&blinds_config);
 RFM69OOK radio(SS, TX_PIN, true);
 TxFifo fifo(&radio);
 
+SSD1306 display(I2C_ADDRESS, SDA, SCL);
+Ui ui(&display);
+
 uint8_t current_blind = 0;
 
 void setup() {
   Serial.begin(115200);
+
+  // Init display
+  ui.init();
 
   // Fetch remote settings from EEPROM
   blinds_config.loadConfig();
