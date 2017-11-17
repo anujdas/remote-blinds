@@ -26,7 +26,9 @@
 class Somfy {
   public:
     Somfy(BlindsConfig* config);
+
     void buildFrame(byte button, uint8_t remote_num, TxFifo* fifo);
+    void printFrame();
 
   private:
     BlindsConfig* config;
@@ -35,7 +37,6 @@ class Somfy {
     byte cksum;
 
     void constructBitstream(TxFifo* fifo);
-    void printFrame();
 };
 
 #endif

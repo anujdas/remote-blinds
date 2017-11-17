@@ -14,15 +14,16 @@ void TxFifo::clear() {
   stream_length = 0;
 }
 
-bool TxFifo::shift(bool val, uint16_t length) {
-  if (stream_length + (length >> 7) >= MAX_STREAM_LENGTH) return false;
+void TxFifo::shift(bool val, uint16_t length) {
+  if (stream_length + (length >> 7) >= MAX_STREAM_LENGTH) {
+    Serial.println(F("FIFO overflow, dropping vals"));
+    return;
+  }
 
   bitstream[stream_length++] = (val << 7) | (length & LENGTH_MASK);
   for (uint16_t i = 0; i < (length >> 7); i++) {
     bitstream[stream_length++] = (val << 7) | LENGTH_MASK;
   }
-
-  return true;
 }
 
 void TxFifo::transmit() {
@@ -40,11 +41,14 @@ void TxFifo::transmit() {
   clear();
 }
 
+/** delayMicroseconds() blocks all execution, which can cause Wifi issues and
+ * WDT restarts; try to use delay() for parts of larger waits to prevent this
+ * from happening.
+ */
 void TxFifo::delayUs(uint16_t us) {
-  initialMicros = micros();
-  uint16_t ms = us & 0xFC00; // > 1023
-  if (ms) {
-    while (micros() - initialMicros < ms) yield();
+  timer = micros();
+  if (us > 2000) {
+    while (micros() - timer < us - 500) yield();
   }
-  delayMicroseconds(us - (micros() - initialMicros));
+  delayMicroseconds(us - (micros() - timer));
 }

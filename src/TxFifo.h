@@ -21,7 +21,7 @@ class TxFifo {
 
     void setBitDuration(uint16_t bit_duration);
     void clear();
-    bool shift(bool val, uint16_t length);
+    void shift(bool val, uint16_t length);
     void transmit();
 
   private:
@@ -29,10 +29,9 @@ class TxFifo {
     uint16_t stream_length;
     uint16_t bit_duration;
     RFM69OOK* radio;
-    unsigned long initialMicros;
 
+    unsigned long timer;
     void delayUs(uint16_t us);
 };
 
 #endif
-
