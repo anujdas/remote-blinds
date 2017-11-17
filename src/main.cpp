@@ -2,14 +2,15 @@
 #include <SPI.h>
 #include <RFM69OOK.h>
 
+#include <DNSServer.h>
+#include <ESP8266WebServer.h>
+#include <WiFiManager.h>
+
 #include "config.h"
 #include "Somfy.h"
 #include "TxFifo.h"
 
 #define TX_PIN D0
-
-const PROGMEM char ssid[] = "";
-const PROGMEM char pass[] = "";
 
 BlindsConfig blinds_config;
 Somfy somfy(&blinds_config);
@@ -17,17 +18,8 @@ RFM69OOK radio(SS, TX_PIN, true);
 TxFifo fifo(&radio);
 
 void connectWifi() {
-  Serial.print("Connecting to ");
-  Serial.println(ssid);
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, pass);
-
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println("");
-
+  WiFiManager wifiManager;
+  wifiManager.autoConnect();
   Serial.println("WiFi connected");
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
@@ -44,7 +36,7 @@ void setup() {
   Serial.begin(115200);
   blinds_config.loadConfig();
   setupRadio();
-  /* connectWifi(); */
+  connectWifi();
 }
 
 void loop() {
