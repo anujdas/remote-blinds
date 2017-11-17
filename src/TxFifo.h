@@ -21,6 +21,7 @@ class TxFifo {
 
     void setBitDuration(uint16_t bit_duration);
     void clear();
+    bool ready();
     void shift(bool val, uint16_t length);
     void transmit();
 

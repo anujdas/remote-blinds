@@ -14,6 +14,10 @@ void TxFifo::clear() {
   stream_length = 0;
 }
 
+bool TxFifo::ready() {
+  return stream_length != 0;
+}
+
 void TxFifo::shift(bool val, uint16_t length) {
   if (stream_length + (length >> 7) >= MAX_STREAM_LENGTH) {
     Serial.println(F("FIFO overflow, dropping vals"));
