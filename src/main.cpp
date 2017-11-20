@@ -55,7 +55,7 @@ void loop() {
     Serial.println("wifi dropped!");
     delay(500);
   }
-  if (!mqtt_client.connected() || !mqtt_client.loop()) {
+  if ((WiFi.status() == WL_CONNECTED) && (!mqtt_client.connected() || !mqtt_client.loop())) {
     handler.setupMqttClient(&mqtt_client);
   }
   if (Serial.available() > 0) {
