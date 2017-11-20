@@ -17,7 +17,7 @@
 BlindsConfig blinds_config;
 Somfy somfy(&blinds_config);
 
-RFM69OOK radio(SS, TX_PIN, true);
+RFM69OOK radio(SS, TX_PIN, true, 0);
 TxFifo fifo(&radio);
 
 MessageHandler handler(&somfy, &fifo);
